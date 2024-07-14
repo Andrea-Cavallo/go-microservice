@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: myapp_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - myapp_network
+    environment:
+      - MONGO_INITDB_DATABASE=myapp
+
+  myapp:
+    build: .
+    container_name: myapp_container
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DATABASE=myapp
+      - SERVICE_NAME=myapp_service
+      - ZIPKIN_URL=http://zipkin:9411/api/v2/spans
+      - SERVICE_IP=localhost:8080
+    depends_on:
+      - mongodb
+      - zipkin
+    networks:
+      - myapp_network
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - myapp_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - myapp_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - myapp_network
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+volumes:
+  mongo-data:
+  grafana-storage:
+
+networks:
+  myapp_network:
+    driver: bridge
